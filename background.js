@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return;
     }
 
-    // Injection request from content script
+    // Request to inject page script into the page main world
     if (msg.type === 'INJECT_PAGE_SCRIPT') {
       if (!sender.tab || !sender.tab.id) {
         sendResponse({ ok: false, error: 'no-tab' });
@@ -29,10 +29,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: false, error: String(err) });
       });
 
-      return true; // will respond asynchronously
+      return true; // async response
     }
 
-    // Ping from content script
+    // Simple ping
     if (msg.type === 'BS_PING') {
       sendResponse({ ok: true, echo: msg.payload });
       return;

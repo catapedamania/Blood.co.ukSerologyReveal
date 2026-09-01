@@ -1,4 +1,4 @@
-// page_inject.js - page context script with marker and token inspection
+// page_inject.js - runs in page main world
 (function () {
   try {
     window.__bs_page_inject_installed = true;
@@ -39,6 +39,7 @@
       const json = JSON.parse(text);
       const token = extractTokenFromObject(json);
       if (token) postToken(token, url);
+      // heuristics: if JSON contains account-like keys, forward details
       if (json && (json.accountDetails || json.serology || /donorID|donorId/i.test(JSON.stringify(Object.keys(json))))) {
         postDetails(json, url);
       }
@@ -108,7 +109,5 @@
     LOG('BS_PAGE_HELLO post failed', e && e.message);
   }
 
-  // Optional: mark global for debugging
   try { window.__bs_page_inject_timestamp = Date.now(); } catch (e) {}
-
 })();

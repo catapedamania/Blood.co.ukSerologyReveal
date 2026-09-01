@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "BS Minimal Debug",
-  "version": "0.1",
-  "description": "Minimal extension to debug page → content → background messaging and token forwarding",
+  "name": "Blood Serology Helper",
+  "version": "1.0",
+  "description": "Capture serology token and insert serology.shortHand into the page UI.",
   "permissions": ["storage", "scripting", "tabs"],
   "host_permissions": ["https://my.blood.co.uk/*"],
   "background": {
