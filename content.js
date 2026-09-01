@@ -27,7 +27,7 @@ function safeSendMessage(msg, cb) {
 #bs-serology-shortHand { display:block; margin:0; padding:0; font-family:inherit; font-size:1rem; line-height:1.4; color:inherit; }
 #bs-serology-shortHand dt.nhsuk-summary-list__key { font-weight:700; margin-right:0.5rem; display:inline-block; }
 #bs-serology-shortHand dd.nhsuk-summary-list__value { display:inline-block; margin:0; font-weight:400; }
-#bs-serology-shortHand .bs-value[aria-hidden="true"] { font-weight:600; margin-right:6px; }
+#bs-serology-shortHand .bs-value[aria-hidden="true"] { font-weight: 400 !important; }
 #bs-serology-shortHand .nhsuk-u-visually-hidden { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
 #bs-inject-error { position: fixed; right: 8px; bottom: 8px; z-index:2147483647; background: rgba(255,60,60,0.95); color:#fff; padding:8px 12px; border-radius:6px; font-family: system-ui, Arial, sans-serif; font-size:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 `;
@@ -41,83 +41,134 @@ function safeSendMessage(msg, cb) {
 })();
 
 // Idempotent insert: update existing row or insert once
+// Insert or update serology row by cloning and copying computed styles
 function insertOrUpdateSerologyRow(shortHand) {
   try {
     if (!shortHand) return;
     const dl = document.querySelector('dl.nhsuk-summary-list');
-    if (!dl) {
-      cLog('BS: summary list not found, aborting insertOrUpdate');
-      return;
-    }
+    if (!dl) return;
 
-    // If the row already exists, update its visible and hidden text
+    // If already present, update and return
     const existing = document.getElementById('bs-serology-shortHand');
     if (existing) {
-      const vis = existing.querySelector('.bs-value[aria-hidden="true"]');
+      const vis = existing.querySelector('.bs-value[aria-hidden="true"]') || existing.querySelector('span[aria-hidden="true"]');
       const hid = existing.querySelector('.nhsuk-u-visually-hidden');
       if (vis) vis.textContent = shortHand;
       if (hid) hid.textContent = shortHand;
-      cLog('BS: updated existing serology row');
+      console.log('BS: updated existing serology row');
       return;
     }
 
-    // Build new row (matching page classes)
+    // Find the Blood group row to clone
     const rows = Array.from(dl.querySelectorAll('.nhsuk-summary-list__row'));
-    let bloodRowIndex = -1;
-    for (let i = 0; i < rows.length; i++) {
-      const dt = rows[i].querySelector('dt.nhsuk-summary-list__key');
-      if (dt && dt.textContent && dt.textContent.trim().toLowerCase().startsWith('blood group')) {
-        bloodRowIndex = i;
-        break;
+    const bloodRow = rows.find(r => {
+      const dt = r.querySelector('dt.nhsuk-summary-list__key');
+      return dt && dt.textContent && dt.textContent.trim().toLowerCase().startsWith('blood group');
+    });
+
+    // Helper to copy computed styles from source element to target element
+    function copyComputedStyles(sourceEl, targetEl, properties) {
+      try {
+        const cs = window.getComputedStyle(sourceEl);
+        if (!properties || !properties.length) {
+          // copy all useful properties if none specified
+          properties = [
+            'display','font','font-size','font-weight','line-height','color',
+            'margin','padding','vertical-align','letter-spacing','text-transform',
+            'white-space','word-break','box-sizing'
+          ];
+        }
+        properties.forEach(prop => {
+          try {
+            const val = cs.getPropertyValue(prop);
+            if (val) targetEl.style.setProperty(prop, val, 'important');
+          } catch (e) {}
+        });
+      } catch (e) {
+        console.warn('BS: copyComputedStyles failed', e && e.message);
       }
     }
 
+    if (bloodRow) {
+      // Clone the whole row to preserve markup and classes
+      const clone = bloodRow.cloneNode(true);
+      clone.id = 'bs-serology-shortHand';
+
+      // Update dt text
+      const dtClone = clone.querySelector('dt.nhsuk-summary-list__key') || clone.querySelector('dt');
+      if (dtClone) dtClone.textContent = 'Serology:';
+
+      // Update visible and hidden spans inside dd
+      const visibleClone = clone.querySelector('span[aria-hidden="true"]');
+      const hiddenClone = clone.querySelector('.nhsuk-u-visually-hidden') || clone.querySelector('span[aria-hidden="true"] + span');
+      if (visibleClone) {
+        visibleClone.classList.add('bs-value');
+        visibleClone.textContent = shortHand;
+      }
+      if (hiddenClone) hiddenClone.textContent = shortHand;
+
+      // Copy computed styles from original dt and dd to cloned dt and dd
+      try {
+        const origDt = bloodRow.querySelector('dt.nhsuk-summary-list__key') || bloodRow.querySelector('dt');
+        const origDd = bloodRow.querySelector('dd.nhsuk-summary-list__value') || bloodRow.querySelector('dd');
+        const cloneDt = dtClone;
+        const cloneDd = clone.querySelector('dd.nhsuk-summary-list__value') || clone.querySelector('dd');
+
+        if (origDt && cloneDt) copyComputedStyles(origDt, cloneDt);
+        if (origDd && cloneDd) copyComputedStyles(origDd, cloneDd);
+      } catch (e) {
+        console.warn('BS: style copy attempt failed', e && e.message);
+      }
+
+      // Insert clone after the original bloodRow
+      const parent = bloodRow.parentNode;
+      const afterNode = bloodRow.nextSibling;
+      if (afterNode) parent.insertBefore(clone, afterNode);
+      else parent.appendChild(clone);
+
+      console.log('BS: inserted serology row by cloning bloodRow and copying styles');
+      return;
+    }
+
+    // Final fallback: create a new row and copy styles from the first row if available
+    const fallbackRow = rows[0];
     const newRow = document.createElement('div');
     newRow.id = 'bs-serology-shortHand';
     newRow.className = 'nhsuk-summary-list__row sc-dkmUuy kGzGkF';
 
-    const dt = document.createElement('dt');
-    dt.className = 'nhsuk-summary-list__key sc-ejfMaa ljDfCo nhsuk-u-padding-right-1';
-    dt.textContent = 'Serology:';
+    const dt2 = document.createElement('dt');
+    dt2.className = 'nhsuk-summary-list__key sc-ejfMaa ljDfCo nhsuk-u-padding-right-1';
+    dt2.textContent = 'Serology:';
 
-    const dd = document.createElement('dd');
-    dd.className = 'nhsuk-summary-list__value sc-iEXKAz hYbzdA';
+    const dd2 = document.createElement('dd');
+    dd2.className = 'nhsuk-summary-list__value sc-iEXKAz hYbzdA';
 
-    const visible = document.createElement('span');
-    visible.setAttribute('aria-hidden', 'true');
-    visible.className = 'bs-value';
-    visible.textContent = shortHand;
+    const vis2 = document.createElement('span');
+    vis2.setAttribute('aria-hidden', 'true');
+    vis2.className = 'bs-value';
+    vis2.textContent = shortHand;
 
-    const hidden = document.createElement('span');
-    hidden.className = 'nhsuk-u-visually-hidden';
-    hidden.textContent = shortHand;
+    const hid2 = document.createElement('span');
+    hid2.className = 'nhsuk-u-visually-hidden';
+    hid2.textContent = shortHand;
 
-    dd.appendChild(visible);
-    dd.appendChild(hidden);
-    newRow.appendChild(dt);
-    newRow.appendChild(dd);
+    dd2.appendChild(vis2);
+    dd2.appendChild(hid2);
+    newRow.appendChild(dt2);
+    newRow.appendChild(dd2);
 
-    if (bloodRowIndex >= 0 && rows[bloodRowIndex].parentNode) {
-      const afterNode = rows[bloodRowIndex].nextSibling;
-      if (afterNode) rows[bloodRowIndex].parentNode.insertBefore(newRow, afterNode);
-      else rows[bloodRowIndex].parentNode.appendChild(newRow);
-      cLog('BS: inserted serology row after Blood group');
-      return;
+    if (fallbackRow) {
+      // copy computed styles from fallbackRow dt/dd
+      try {
+        const origDt = fallbackRow.querySelector('dt.nhsuk-summary-list__key') || fallbackRow.querySelector('dt');
+        const origDd = fallbackRow.querySelector('dd.nhsuk-summary-list__value') || fallbackRow.querySelector('dd');
+        if (origDt) copyComputedStyles(origDt, dt2);
+        if (origDd) copyComputedStyles(origDd, dd2);
+      } catch (e) {}
     }
 
-    // fallback: insert before Donation type
-    for (let i = 0; i < rows.length; i++) {
-      const dt2 = rows[i].querySelector('dt.nhsuk-summary-list__key');
-      if (dt2 && dt2.textContent && dt2.textContent.trim().toLowerCase().startsWith('donation type')) {
-        rows[i].parentNode.insertBefore(newRow, rows[i]);
-        cLog('BS: inserted serology row before Donation type');
-        return;
-      }
-    }
-
-    // final fallback: append
     dl.appendChild(newRow);
-    cLog('BS: appended serology row as fallback');
+    console.log('BS: appended serology row fallback with copied styles');
   } catch (e) {
     console.error('BS: insertOrUpdateSerologyRow error', e && e.message);
   }
