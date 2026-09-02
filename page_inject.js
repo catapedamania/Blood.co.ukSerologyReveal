@@ -1,4 +1,4 @@
-// page_inject.js — cleaned, minimal, MAIN‑world only
+// page_inject.js — final cleaned version, always forwards FULL JSON
 (function () {
   if (window.__bs_page_inject_installed) return;
   window.__bs_page_inject_installed = true;
@@ -36,13 +36,12 @@
       const json = await res.json().catch(() => null);
       if (!json) return;
 
-      const candidate =
-        json.serology?.shortHand ? json :
-        json.accountDetails?.serology?.shortHand ? json.accountDetails :
-        null;
+      const hasSerology =
+        json.serology?.shortHand ||
+        json.accountDetails?.serology?.shortHand;
 
-      if (candidate) {
-        postToContent({ type: 'BloodSerologyExtDetails', json: candidate, source: sourceHint });
+      if (hasSerology) {
+        postToContent({ type: 'BloodSerologyExtDetails', json, source: sourceHint });
       }
     } catch {}
   }
@@ -76,13 +75,14 @@
       try {
         if (url === DETAILS_URL) {
           const json = await res.clone().json().catch(() => null);
-          const candidate =
-            json?.serology ? json :
-            json?.accountDetails ? json.accountDetails :
-            null;
+          if (!json) return;
 
-          if (candidate?.serology?.shortHand) {
-            postToContent({ type: 'BloodSerologyExtDetails', json: candidate, source: 'observed-fetch' });
+          const hasSerology =
+            json.serology?.shortHand ||
+            json.accountDetails?.serology?.shortHand;
+
+          if (hasSerology) {
+            postToContent({ type: 'BloodSerologyExtDetails', json, source: 'observed-fetch' });
           }
         }
 
@@ -121,15 +121,12 @@
 
         const json = JSON.parse(text);
 
-        if (url === DETAILS_URL) {
-          const candidate =
-            json.serology ? json :
-            json.accountDetails ? json.accountDetails :
-            null;
+        const hasSerology =
+          json.serology?.shortHand ||
+          json.accountDetails?.serology?.shortHand;
 
-          if (candidate?.serology?.shortHand) {
-            postToContent({ type: 'BloodSerologyExtDetails', json: candidate, source: 'observed-xhr' });
-          }
+        if (hasSerology) {
+          postToContent({ type: 'BloodSerologyExtDetails', json, source: 'observed-xhr' });
         }
 
         if (url === LOGIN_URL) {
