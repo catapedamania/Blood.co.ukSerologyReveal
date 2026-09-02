@@ -49,7 +49,7 @@ function formatRegistrationDate(raw) {
 
   return date.toLocaleDateString('en-GB', {
     day: '2-digit',
-    month: 'short',
+    month: 'long',
     year: 'numeric'
   });
 }
