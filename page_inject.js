@@ -1,4 +1,4 @@
-// page_inject.js - conservative, bearer-only details requests, runs in page main world at document_start
+// page_inject.js - conservative, observe details responses on refresh, runs in page main world at document_start
 (function () {
   try {
     if (window.__bs_page_inject_installed) return;
@@ -23,7 +23,6 @@
       return m ? m[1] : null;
     }
 
-    // Strict JWT check
     function looksLikeJwt(s) {
       if (!s || typeof s !== 'string') return false;
       return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s.trim());
@@ -103,7 +102,35 @@
       }
     }
 
-    // Inspect only the exact login URL responses
+    // Debounce and forward details responses observed on the page (used for refresh)
+    const forwardedDetailsCache = new Map(); // key -> timestamp
+    function forwardDetailsIfContainsSerology(json, sourceHint) {
+      try {
+        if (!json) return false;
+        const candidate = json.serology ? json : (json.accountDetails ? json.accountDetails : null);
+        if (!candidate) return false;
+        const shortHand = candidate.serology && candidate.serology.shortHand;
+        if (!shortHand) return false;
+
+        // dedupe by shortHand + source
+        const key = String(shortHand) + '|' + (sourceHint || 'observed');
+        const lastTs = forwardedDetailsCache.get(key) || 0;
+        if ((Date.now() - lastTs) < 3000) {
+          LOG('forwardDetailsIfContainsSerology: duplicate within 3s, skipping', key);
+          return true;
+        }
+        forwardedDetailsCache.set(key, Date.now());
+
+        postToContent({ type: 'BloodSerologyExtDetails', json: candidate, source: sourceHint });
+        LOG('forwardDetailsIfContainsSerology: forwarded serology', shortHand, sourceHint);
+        return true;
+      } catch (e) {
+        LOG('forwardDetailsIfContainsSerology error', e && e.message);
+        return false;
+      }
+    }
+
+    // --- Inspect fetch responses for DETAILS_URL (observe refresh) ---
     try {
       const origFetch = window.fetch;
       if (origFetch) {
@@ -111,18 +138,24 @@
           const requestUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url);
           const res = await origFetch.apply(this, args);
           try {
+            // Only inspect exact DETAILS_URL responses
+            if (requestUrl && requestUrl === DETAILS_URL) {
+              // clone and parse JSON if possible
+              const json = await res.clone().json().catch(() => null);
+              if (json) {
+                // forward if contains serology
+                forwardDetailsIfContainsSerology(json, 'observed-fetch');
+              }
+            }
+            // Also keep existing login-response inspection
             if (requestUrl && requestUrl === LOGIN_URL) {
               const text = await res.clone().text().catch(() => null);
               if (text) {
                 try {
                   const json = JSON.parse(text);
                   const token = extractTokenFromJson(json);
-                  if (token) {
-                    handleDetectedToken(token, 'login-response').catch(()=>{});
-                  }
-                } catch (e) {
-                  // ignore non-JSON
-                }
+                  if (token) handleDetectedToken(token, 'login-response').catch(()=>{});
+                } catch (e) { /* ignore non-JSON */ }
               }
             }
           } catch (e) {
@@ -130,11 +163,11 @@
           }
           return res;
         };
-        LOG('fetch wrapped (restricted to login URL)');
+        LOG('fetch wrapped (observes DETAILS_URL responses)');
       }
     } catch (e) { LOG('fetch wrap failed', e && e.message); }
 
-    // Wrap XHR but only inspect requests to the exact login URL
+    // --- Inspect XHR responses for DETAILS_URL (observe refresh) ---
     try {
       const OriginalXHR = window.XMLHttpRequest;
       function PatchedXHR() {
@@ -148,18 +181,24 @@
           try {
             const url = this.__bs_url;
             if (!url) return;
+            if (url === DETAILS_URL) {
+              const text = this.responseText;
+              if (!text) return;
+              try {
+                const json = JSON.parse(text);
+                if (json) forwardDetailsIfContainsSerology(json, 'observed-xhr');
+              } catch (e) {
+                // ignore non-JSON
+              }
+            }
             if (url === LOGIN_URL) {
               const text = this.responseText;
               if (!text) return;
               try {
                 const json = JSON.parse(text);
                 const token = extractTokenFromJson(json);
-                if (token) {
-                  handleDetectedToken(token, 'xhr-login-response').catch(()=>{});
-                }
-              } catch (e) {
-                // ignore non-JSON
-              }
+                if (token) handleDetectedToken(token, 'xhr-login-response').catch(()=>{});
+              } catch (e) { /* ignore non-JSON */ }
             }
           } catch (e) {
             LOG('XHR wrapper error', e && e.message);
@@ -168,11 +207,10 @@
         return xhr;
       }
       window.XMLHttpRequest = PatchedXHR;
-      LOG('XMLHttpRequest wrapped (restricted to login URL)');
+      LOG('XMLHttpRequest wrapped (observes DETAILS_URL responses)');
     } catch (e) { LOG('XHR wrap failed', e && e.message); }
 
-    // Patch document.cookie setter but do NOT trigger bearer details from cookie writes.
-    // Only post the cookie token for storage; do not call handleDetectedToken here.
+    // --- Cookie setter: post token but do NOT attempt bearer details from cookie writes ---
     try {
       const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie') ||
                                Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'cookie');
@@ -200,25 +238,22 @@
       }
     } catch (e) { LOG('cookie patch failed', e && e.message); }
 
-    // Initial scan for trusted sources only (storage keys or global state)
+    // --- Initial scan for trusted storage/global JWTs (only trigger bearer if JWT found) ---
     try {
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
           const v = localStorage.getItem(k);
           if (!v) continue;
-          // Only treat explicit accessToken keys as trusted storage sources
           if (/accessToken|access_token|bs_token/i.test(k) && looksLikeJwt(v)) {
             LOG('found JWT-like token in localStorage key', k);
             handleDetectedToken(v, 'storage.setItem').catch(()=>{});
           } else if (/accessToken|access_token|bs_token/i.test(k)) {
-            // forward non-JWT token for storage but do not call details
             postToContent({ type: 'BloodSerologyExtToken', token: v, source: 'localStorage' });
           }
         }
       } catch (e) {}
 
-      // Check common global state objects but only trigger details if a JWT is found
       try {
         const candidates = [
           window.__INITIAL_STATE__,
@@ -240,7 +275,8 @@
                 postToContent({ type: 'BloodSerologyExtToken', token, source: 'globalState' });
               }
               if (json && (json.accountDetails || json.serology)) {
-                postToContent({ type: 'BloodSerologyExtDetails', json, source: 'globalState' });
+                // forward details if present in global state
+                forwardDetailsIfContainsSerology(json, 'globalState');
               }
             }
           } catch (e) {}
@@ -250,7 +286,7 @@
 
     // Announce readiness
     postToContent({ type: 'BS_PAGE_HELLO', ready: true });
-    LOG('installed (restricted, bearer-only details requests)');
+    LOG('installed (observes DETAILS_URL responses; bearer-only details requests)');
 
   } catch (e) {
     try { console.warn('[page_inject] top-level error', e && e.message); } catch (e2) {}
