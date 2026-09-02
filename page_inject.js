@@ -29,7 +29,6 @@
       return /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/.test(s.trim());
     }
 
-    // Only request details when we have a JWT and the source is trusted
     async function fetchDetailsWithBearer(token, sourceHint) {
       if (!token) return null;
       try {
@@ -56,20 +55,17 @@
       }
     }
 
-    // Only attempt details when token is JWT and source is trusted for bearer usage
     async function handleDetectedToken(rawToken, hint) {
       try {
         const tokenFromCookie = (typeof rawToken === 'string') ? (extractTokenFromCookieString(rawToken) || rawToken) : rawToken;
         const token = (typeof tokenFromCookie === 'string') ? tokenFromCookie.trim() : tokenFromCookie;
 
-        // forward raw token for storage/logging
         postToContent({ type: 'BloodSerologyExtToken', token: token, source: hint });
 
         const bearerTrustedSources = new Set(['login-response', 'xhr-login-response', 'storage.setItem', 'globalState']);
         if (!bearerTrustedSources.has(hint)) return;
         if (!looksLikeJwt(token)) return;
 
-        // debounce per token
         try {
           const last = window.__bs_last_details || {};
           if (last.token === token && (Date.now() - last.ts) < 5000) return;
@@ -80,7 +76,6 @@
       } catch (e) {}
     }
 
-    // Forward details if response contains serology (deduped)
     const forwardedDetailsCache = new Map();
     function forwardDetailsIfContainsSerology(json, sourceHint) {
       try {
@@ -102,7 +97,6 @@
       }
     }
 
-    // Inspect fetch responses for DETAILS_URL and LOGIN_URL
     try {
       const origFetch = window.fetch;
       if (origFetch) {
@@ -130,7 +124,6 @@
       }
     } catch (e) {}
 
-    // Inspect XHR responses for DETAILS_URL and LOGIN_URL
     try {
       const OriginalXHR = window.XMLHttpRequest;
       function PatchedXHR() {
@@ -168,7 +161,6 @@
       window.XMLHttpRequest = PatchedXHR;
     } catch (e) {}
 
-    // Patch document.cookie setter: post token only, do not attempt bearer details
     try {
       const cookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie') ||
                                Object.getOwnPropertyDescriptor(HTMLDocument.prototype, 'cookie');
@@ -191,7 +183,6 @@
       }
     } catch (e) {}
 
-    // Quick storage check for explicit JWT keys (optional, minimal)
     try {
       const v = localStorage.getItem('accessToken') || localStorage.getItem('bs_token');
       if (v && looksLikeJwt(v)) handleDetectedToken(v, 'storage.setItem').catch(()=>{});

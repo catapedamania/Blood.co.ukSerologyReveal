@@ -1,4 +1,4 @@
-// content.js - minimal logging
+// content.js - minimal logging, no automatic hello/ping, manual DevTools ping hook
 console.log('[content] loaded');
 
 function safeSendMessage(msg) {
@@ -140,6 +140,13 @@ window.addEventListener('message', (ev) => {
     const data = ev.data;
     if (!data || typeof data !== 'object') return;
 
+    // Manual DevTools ping hook (invoke from console):
+    // window.postMessage({ type: 'BS_TEST_FROM_PAGE', payload: 'ping' }, '*');
+    if (data.type === 'BS_TEST_FROM_PAGE') {
+      safeSendMessage({ type: 'BS_PING', payload: data.payload });
+      return;
+    }
+
     if (data.type === 'BloodSerologyExtToken') {
       function extractAccessTokenFromString(s) {
         if (!s) return null;
@@ -197,6 +204,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+// Request background to inject page_inject.js as a fallback (fire-and-forget)
 (function requestInjectionOnce() {
   try {
     if (window.__bs_injection_requested) return;
