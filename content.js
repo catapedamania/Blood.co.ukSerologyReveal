@@ -1,4 +1,4 @@
-// content.js — final cleaned version
+// content.js — final cleaned version with Blood Group clone-only insertion
 console.log('[content] loaded');
 
 // Safe message sender
@@ -18,7 +18,7 @@ function safeSendMessage(msg) {
   });
 }
 
-// Minimal CSS for serology + registration date rows
+// Minimal CSS for injected rows
 (function injectBsStyles() {
   try {
     const css = `
@@ -32,7 +32,9 @@ function safeSendMessage(msg) {
     const s = document.createElement('style');
     s.textContent = css;
     (document.head || document.documentElement).appendChild(s);
-  } catch {}
+  } catch {
+    console.error('[content] injectBsStyles failed');
+  }
 })();
 
 // Format registration date
@@ -40,7 +42,7 @@ function formatRegistrationDate(raw) {
   if (!raw || raw.length !== 8) return null;
   const yyyy = raw.slice(0,4);
   const mm = raw.slice(4,6);
-  const dd = raw.slice(8-2);
+  const dd = raw.slice(6,8);
 
   const date = new Date(`${yyyy}-${mm}-${dd}T00:00:00`);
   if (isNaN(date.getTime())) return null;
@@ -52,9 +54,11 @@ function formatRegistrationDate(raw) {
   });
 }
 
-// Insert/update serology row
+// Clone-only Serology insertion
 function insertOrUpdateSerologyRow(shortHand) {
   try {
+    if (!shortHand) return;
+
     const dl = document.querySelector('dl.nhsuk-summary-list');
     if (!dl) return;
 
@@ -71,44 +75,32 @@ function insertOrUpdateSerologyRow(shortHand) {
       return dt && dt.textContent.trim().toLowerCase().startsWith('blood group');
     });
 
-    const newRow = document.createElement('div');
-    newRow.id = 'bs-serology-shortHand';
-    newRow.className = 'nhsuk-summary-list__row';
+    if (!bloodRow) return;
 
-    const dt = document.createElement('dt');
-    dt.className = 'nhsuk-summary-list__key';
-    dt.textContent = 'Serology:';
+    const clone = bloodRow.cloneNode(true);
+    clone.id = 'bs-serology-shortHand';
 
-    const dd = document.createElement('dd');
-    dd.className = 'nhsuk-summary-list__value';
+    const dtClone = clone.querySelector('dt.nhsuk-summary-list__key');
+    const ddClone = clone.querySelector('dd.nhsuk-summary-list__value');
+    const visClone = clone.querySelector('span[aria-hidden="true"]');
+    const hidClone = clone.querySelector('.nhsuk-u-visually-hidden');
 
-    const vis = document.createElement('span');
-    vis.className = 'bs-value';
-    vis.setAttribute('aria-hidden', 'true');
-    vis.textContent = shortHand;
+    dtClone.textContent = 'Serology:';
+    visClone.textContent = shortHand;
+    visClone.classList.add('bs-value');
+    hidClone.textContent = shortHand;
 
-    const hid = document.createElement('span');
-    hid.className = 'nhsuk-u-visually-hidden';
-    hid.textContent = shortHand;
-
-    dd.append(vis, hid);
-    newRow.append(dt, dd);
-
-    if (bloodRow && bloodRow.nextSibling) {
-      bloodRow.parentNode.insertBefore(newRow, bloodRow.nextSibling);
-    } else if (bloodRow) {
-      bloodRow.parentNode.appendChild(newRow);
-    } else {
-      dl.appendChild(newRow);
-    }
+    bloodRow.after(clone);
   } catch (e) {
     console.error('[content] insertOrUpdateSerologyRow error', e);
   }
 }
 
-// Insert/update registration date row
+// Clone-only Registration Date insertion
 function insertRegistrationDateRow(regDateFormatted) {
   try {
+    if (!regDateFormatted) return;
+
     const dl = document.querySelector('dl.nhsuk-summary-list');
     if (!dl) return;
 
@@ -120,41 +112,38 @@ function insertRegistrationDateRow(regDateFormatted) {
     }
 
     const rows = [...dl.querySelectorAll('.nhsuk-summary-list__row')];
+    const bloodRow = rows.find(r => {
+      const dt = r.querySelector('dt.nhsuk-summary-list__key');
+      return dt && dt.textContent.trim().toLowerCase().startsWith('blood group');
+    });
+
+    if (!bloodRow) return;
+
+    const clone = bloodRow.cloneNode(true);
+    clone.id = 'bs-registration-date';
+
+    const dtClone = clone.querySelector('dt.nhsuk-summary-list__key');
+    const ddClone = clone.querySelector('dd.nhsuk-summary-list__value');
+    const visClone = ddClone.querySelector('span[aria-hidden="true"]');
+    const hidClone = ddClone.querySelector('.nhsuk-u-visually-hidden');
+
+    dtClone.textContent = 'Registration date:';
+    visClone.textContent = regDateFormatted;
+    visClone.classList.add('bs-value');
+    hidClone.textContent = regDateFormatted;
+
+    // Insert under Donation Credits
     const donationCreditsRow = rows.find(r => {
       const dt = r.querySelector('dt.nhsuk-summary-list__key');
       return dt && dt.textContent.trim().toLowerCase().startsWith('donation credits');
     });
 
-    const newRow = document.createElement('div');
-    newRow.id = 'bs-registration-date';
-    newRow.className = 'nhsuk-summary-list__row';
-
-    const dt = document.createElement('dt');
-    dt.className = 'nhsuk-summary-list__key';
-    dt.textContent = 'Registration date:';
-
-    const dd = document.createElement('dd');
-    dd.className = 'nhsuk-summary-list__value';
-
-    const vis = document.createElement('span');
-    vis.className = 'bs-value';
-    vis.setAttribute('aria-hidden', 'true');
-    vis.textContent = regDateFormatted;
-
-    const hid = document.createElement('span');
-    hid.className = 'nhsuk-u-visually-hidden';
-    hid.textContent = regDateFormatted;
-
-    dd.append(vis, hid);
-    newRow.append(dt, dd);
-
-    if (donationCreditsRow && donationCreditsRow.nextSibling) {
-      donationCreditsRow.parentNode.insertBefore(newRow, donationCreditsRow.nextSibling);
-    } else if (donationCreditsRow) {
-      donationCreditsRow.parentNode.appendChild(newRow);
+    if (donationCreditsRow) {
+      donationCreditsRow.after(clone);
     } else {
-      dl.appendChild(newRow);
+      dl.appendChild(clone);
     }
+
   } catch (e) {
     console.error('[content] insertRegistrationDateRow error', e);
   }
