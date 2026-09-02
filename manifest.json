@@ -3,7 +3,7 @@
   "name": "Blood Serology Helper",
   "version": "1.0",
   "description": "Capture serology token and insert serology.shortHand into the page UI.",
-  "permissions": ["storage", "scripting", "tabs"],
+  "permissions": ["storage", "scripting", "tabs", "webNavigation"],
   "host_permissions": ["https://my.blood.co.uk/*"],
   "background": {
     "service_worker": "background.js"
