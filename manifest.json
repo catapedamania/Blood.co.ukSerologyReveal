@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Blood Serology Helper",
-  "version": "1.0",
-  "description": "Capture serology token and insert serology.shortHand into the page UI.",
+  "name": "Blood.co.uk Serology Rh Phenotype Display",
+  "version": "1.3",
+  "description": "Capture serology Rh phenotype and display it on the blood.co.uk account screen.",
   "permissions": ["storage", "scripting", "tabs", "webNavigation"],
   "host_permissions": ["https://my.blood.co.uk/*"],
   "background": {
