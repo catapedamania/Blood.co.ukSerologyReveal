@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Privacy Policy – Blood Serology Helper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: auto; }
+  h1, h2 { color: #0b66c3; }
+  p, li { margin-bottom: 12px; }
+  ul { margin-left: 20px; }
+  strong { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+
+<h2>Overview</h2>
+<p>
+  This privacy notice explains how the <strong>Blood Serology Helper</strong> browser extension handles authentication tokens 
+  and related account details. It is short, focused, and written for users of the extension. 
+  <strong>No other personal data</strong> is collected or transmitted by the extension beyond what is described below.
+</p>
+
+<h2>Data Collected</h2>
+
+<h3>What we collect</h3>
+<ul>
+  <li><strong>Authentication tokens</strong> (for example JWTs or cookie strings) that are present in the page context and are necessary to read the user’s account details from <code>https://my.blood.co.uk</code>.</li>
+  <li><strong>Account details</strong> returned by the site’s <code>api/account/v2/details</code> endpoint when the extension observes that response (only the fields required to display the serology shortHand).</li>
+</ul>
+
+<h3>What we do not collect</h3>
+<ul>
+  <li>We do not collect browsing history, passwords, or any unrelated personal files.</li>
+  <li>We do not collect or transmit tokens or account data to third parties except as described below.</li>
+</ul>
+
+<h2>Purpose and Use</h2>
+
+<h3>Why we collect tokens and details</h3>
+<ul>
+  <li>To detect when a user logs in and to retrieve the donor <strong>serology.shortHand</strong> so the extension can display it in the page UI.</li>
+  <li>To forward the minimal account details required for the UI insertion.</li>
+</ul>
+
+<h3>How the data is used</h3>
+<ul>
+  <li>Tokens are used only to request the site’s account details from the same origin.</li>
+  <li>Account details are used only to populate the serology UI element in the current browser tab.</li>
+</ul>
+
+<h2>Storage Security and Access</h2>
+
+<h3>Where data is stored</h3>
+<ul>
+  <li>The extension may store a <strong>single token preview</strong> in the extension’s local storage for convenience; this is stored locally on the user’s device only.</li>
+  <li>Full account responses are <strong>not</strong> sent to external servers.</li>
+</ul>
+
+<h3>Security measures</h3>
+<ul>
+  <li>Stored data is kept in the browser extension storage area accessible only to the extension.</li>
+  <li>The extension does not transmit tokens or account details to any external service or analytics provider.</li>
+  <li>Debug logs that previously contained token fragments have been removed; logs no longer include sensitive token values.</li>
+</ul>
+
+<h2>Retention and Deletion</h2>
+
+<h3>How long data is kept</h3>
+<p>
+  Tokens and account details stored by the extension are retained only as long as the user keeps the extension installed 
+  or until the user clears the extension storage.
+</p>
+
+<h3>How to delete data</h3>
+<ul>
+  <li>To remove stored data, uninstall the extension or clear the extension’s local storage via the browser extension settings.</li>
+  <li>If you want the extension to forget stored data immediately, uninstall and reinstall the extension.</li>
+</ul>
+
+<h2>Contact and Changes</h2>
+
+<h3>Contact</h3>
+<p>
+  For questions or requests about data handling, contact: <strong>support@example.com</strong>.
+</p>
+
+<h3>Policy changes</h3>
+<p>
+  This notice may be updated occasionally. Material changes will be reflected in the extension listing and in an updated version of this notice.
+</p>
+
+<hr>
+
+<h2>Short Summary</h2>
+<p>
+  The extension only reads tokens and the minimal account fields needed to show <strong>serology.shortHand</strong>, 
+  stores data locally, does not send data to external servers, and will not attempt details requests unless a valid bearer token is present.
+</p>
+
+</body>
+</html>
