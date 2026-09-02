@@ -188,22 +188,6 @@ window.addEventListener('message', (ev) => {
   }
 }, false);
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  try {
-    if (!msg || !msg.type) {
-      sendResponse({ ok: false, reason: 'no-type' });
-      return;
-    }
-    if (msg.type === 'outgoing.message.ready') {
-      sendResponse({ ok: true });
-      return;
-    }
-    sendResponse({ ok: false, reason: 'unknown-type' });
-  } catch (e) {
-    sendResponse({ ok: false, error: String(e) });
-  }
-});
-
 // Request background to inject page_inject.js as a fallback (fire-and-forget)
 (function requestInjectionOnce() {
   try {
